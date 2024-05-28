@@ -1,6 +1,9 @@
 import random
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.ndimage import gaussian_filter1d
+from tabulate import tabulate
+import time
 
 
 class Circle:
@@ -12,6 +15,9 @@ class Circle:
     def is_inside(self, x, y):
         return (x - self.cx) ** 2 + (y - self.cy) ** 2 <= self.radius ** 2
 
+    def area(self):
+        return np.pi * self.radius ** 2
+
 
 class Square:
     def __init__(self, sx_min, sx_max, sy_min, sy_max):
@@ -22,6 +28,9 @@ class Square:
 
     def is_inside(self, x, y):
         return self.sx_min <= x <= self.sx_max and self.sy_min <= y <= self.sy_max
+
+    def area(self):
+        return (self.sx_max - self.sx_min) * (self.sy_max - self.sy_min)
 
 
 class Triangle:
@@ -39,6 +48,12 @@ class Triangle:
         A3 = 0.5 * np.abs(x1 * (y2 - y) + x2 * (y - y1) + x * (y1 - y2))
 
         return np.isclose(A, A1 + A2 + A3)
+
+    def area(self):
+        x1, y1 = self.vertices[0]
+        x2, y2 = self.vertices[1]
+        x3, y3 = self.vertices[2]
+        return 0.5 * np.abs(x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
 
 
 def calculate_area_monte_carlo(shape, area_domain, num_points):
@@ -74,39 +89,85 @@ area_domain = (-5, 5, -5, 5)  # (x_min, x_max, y_min, y_max)
 num_points = [2**i for i in range(5, 14)] + [20000, 25000, 30000, 35000, 40000, 45000, 50000, 55000, 60000, 70000, 75000,
                                              80000, 85000, 90000, 95000, 131072]
 
+# Истинные значения площадей
+true_area_circle = circle.area()
+true_area_square = square.area()
+true_area_triangle = triangle.area()
 
-# Списки для сохранения ошибок оценки площади
-errors_circle = []
-errors_square = []
-errors_triangle = []
+# Таблицы для сохранения результатов
+table_circle = []
+table_square = []
+table_triangle = []
 
-# Вычисление ошибок для каждого количества точек для круга
+# Переменные для хранения итогового времени работы для каждой фигуры
+total_time_circle = 0
+total_time_square = 0
+total_time_triangle = 0
+
+# Начало общего времени работы программы
+start_time_total = time.time()
+
+# Вычисление ошибок и площадей для каждого количества точек
 for npoints in num_points:
+    # Circle
+    start_time = time.time()
     estimated_area_circle = calculate_area_monte_carlo(circle, area_domain, npoints)
-    error_circle = np.abs(np.pi * circle.radius ** 2 - estimated_area_circle)
-    errors_circle.append(error_circle)
+    elapsed_time_circle = time.time() - start_time
+    total_time_circle += elapsed_time_circle
+    error_circle = calculate_error(true_area_circle, estimated_area_circle)
+    table_circle.append([npoints, estimated_area_circle, error_circle, elapsed_time_circle])
 
-# Вычисление ошибок для каждого количества точек для квадрата
-for npoints in num_points:
+    # Square
+    start_time = time.time()
     estimated_area_square = calculate_area_monte_carlo(square, area_domain, npoints)
-    error_square = np.abs((square.sx_max - square.sx_min) * (square.sy_max - square.sy_min) - estimated_area_square)
-    errors_square.append(error_square)
+    elapsed_time_square = time.time() - start_time
+    total_time_square += elapsed_time_square
+    error_square = calculate_error(true_area_square, estimated_area_square)
+    table_square.append([npoints, estimated_area_square, error_square, elapsed_time_square])
 
-# Вычисление ошибок для каждого количества точек для треугольника
-for npoints in num_points:
+    # Triangle
+    start_time = time.time()
     estimated_area_triangle = calculate_area_monte_carlo(triangle, area_domain, npoints)
-    true_area_triangle = 0.5 * np.abs(
-        triangle.vertices[0][0] * (triangle.vertices[1][1] - triangle.vertices[2][1]) + triangle.vertices[1][0] * (
-                    triangle.vertices[2][1] - triangle.vertices[0][1]) + triangle.vertices[2][0] * (
-                    triangle.vertices[0][1] - triangle.vertices[1][1]))
-    error_triangle = np.abs(true_area_triangle - estimated_area_triangle)
-    errors_triangle.append(error_triangle)
+    elapsed_time_triangle = time.time() - start_time
+    total_time_triangle += elapsed_time_triangle
+    error_triangle = calculate_error(true_area_triangle, estimated_area_triangle)
+    table_triangle.append([npoints, estimated_area_triangle, error_triangle, elapsed_time_triangle])
+
+# Конец общего времени работы программы
+total_elapsed_time = time.time() - start_time_total
+
+# Вывод таблиц
+print("Circle Area Estimation")
+print(tabulate(table_circle, headers=["Number of Points", "Estimated Area", "Error", "Elapsed Time (s)"]))
+
+print("\nSquare Area Estimation")
+print(tabulate(table_square, headers=["Number of Points", "Estimated Area", "Error", "Elapsed Time (s)"]))
+
+print("\nTriangle Area Estimation")
+print(tabulate(table_triangle, headers=["Number of Points", "Estimated Area", "Error", "Elapsed Time (s)"]))
+
+# Вывод итогового времени расчета для каждой фигуры
+print(f"\nTotal time for Circle calculations: {total_time_circle:.4f} seconds")
+print(f"Total time for Square calculations: {total_time_square:.4f} seconds")
+print(f"Total time for Triangle calculations: {total_time_triangle:.4f} seconds")
+
+# Вывод общего времени работы программы
+print(f"\nTotal elapsed time for the program: {total_elapsed_time:.4f} seconds")
 
 # Построение графика ошибок для всех фигур на одном графике
 plt.figure(figsize=(10, 6))
-plt.plot(num_points, errors_circle, marker='o', linestyle='-', color='b', label='Circle')
-plt.plot(num_points, errors_square, marker='s', linestyle='-', color='r', label='Square')
-plt.plot(num_points, errors_triangle, marker='^', linestyle='-', color='g', label='Triangle')
+circle_errors = [row[2] for row in table_circle]
+square_errors = [row[2] for row in table_square]
+triangle_errors = [row[2] for row in table_triangle]
+
+# Применение сглаживания
+smoothed_circle_errors = gaussian_filter1d(circle_errors, sigma=2)
+smoothed_square_errors = gaussian_filter1d(square_errors, sigma=2)
+smoothed_triangle_errors = gaussian_filter1d(triangle_errors, sigma=2)
+
+plt.plot(num_points, smoothed_circle_errors, marker='o', linestyle='-', color='b', label='Circle')
+plt.plot(num_points, smoothed_square_errors, marker='s', linestyle='-', color='r', label='Square')
+plt.plot(num_points, smoothed_triangle_errors, marker='^', linestyle='-', color='g', label='Triangle')
 
 # Теоретическая погрешность метода Монте-Карло
 theoretical_error = [1 / np.sqrt(n) for n in num_points]
