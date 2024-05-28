@@ -74,7 +74,7 @@ def calculate_area_monte_carlo(shape, area_domain, num_points):
 
 
 def calculate_error(true_area, estimated_area):
-    return np.abs(estimated_area - true_area)
+    return np.abs(estimated_area - true_area) / true_area
 
 
 # Параметры и создание объектов для круга, квадрата и треугольника
@@ -84,10 +84,10 @@ triangle = Triangle([(0, 0), (3, 0), (1.5, 2)])
 
 # Область измерения
 area_domain = (-5, 5, -5, 5)  # (x_min, x_max, y_min, y_max)
+area_domain_size = (area_domain[1] - area_domain[0]) * (area_domain[3] - area_domain[2])
 
 # Список количеств точек для оценки площади
-num_points = [2**i for i in range(5, 14)] + [20000, 25000, 30000, 35000, 40000, 45000, 50000, 55000, 60000, 70000, 75000,
-                                             80000, 85000, 90000, 95000, 131072]
+num_points = [2 ** i for i in range(5, 20)]
 
 # Истинные значения площадей
 true_area_circle = circle.area()
@@ -106,6 +106,9 @@ total_time_triangle = 0
 
 # Начало общего времени работы программы
 start_time_total = time.time()
+
+# Установка зерна для генератора случайных чисел
+random.seed(42)
 
 # Вычисление ошибок и площадей для каждого количества точек
 for npoints in num_points:
@@ -170,13 +173,18 @@ plt.plot(num_points, smoothed_square_errors, marker='s', linestyle='-', color='r
 plt.plot(num_points, smoothed_triangle_errors, marker='^', linestyle='-', color='g', label='Triangle')
 
 # Теоретическая погрешность метода Монте-Карло
-theoretical_error = [1 / np.sqrt(n) for n in num_points]
-plt.plot(num_points, theoretical_error, linestyle='--', color='k', label='Theoretical Error')
+theoretical_error_circle = [np.sqrt(area_domain_size / (true_area_circle * n)) for n in num_points]
+theoretical_error_square = [np.sqrt(area_domain_size / ( true_area_square * n)) for n in num_points]
+theoretical_error_triangle = [np.sqrt(area_domain_size/ true_area_triangle / n) for n in num_points]
+plt.plot(num_points, theoretical_error_circle, linestyle='--', color='r', label='Theoretical Error')
+plt.plot(num_points, theoretical_error_square, linestyle='--', color='b', label='Theoretical Error')
+plt.plot(num_points, theoretical_error_triangle, linestyle='--', color='g', label='Theoretical Error')
 
 plt.title('Error in Area Estimation for Different Shapes')
 plt.xlabel('Number of Points (log scale)')
 plt.ylabel('Error')
-plt.yscale('log')  # Логарифмическая шкала по оси y для наглядности
+plt.yscale('log')
+plt.xscale('log')
 plt.legend()
 plt.grid(True)
 plt.show()
